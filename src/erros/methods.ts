@@ -1,5 +1,5 @@
 export type Schemaissue = {
-  danger?: boolean;
+  paths?: boolean;
   message: string;
 };
 // helpers

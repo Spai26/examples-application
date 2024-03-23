@@ -12,6 +12,15 @@ export namespace util {
 
   export type noUndefined<T> = T extends undefined ? never : T;
   export type isAny<T> = 0 extends 1 & T ? true : false;
+  export type NonNullable<T> = T & {};
+
+  export type OmitKeys<T, K extends string> = Pick<T, Exclude<keyof T, K>>;
+  export const jsonStringifyReplacer = (_: string, value: any): any => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    return value;
+  };
 }
 
 // retorna un undfined independientemente de la declarion del tipado
@@ -45,12 +54,12 @@ export const SchemaParsedType = util.arrayToEnum([
   "never",
   "map",
   "set",
+  "jsonarray",
+  "json",
 ]);
 
 // toma los valores los tipados
 export type SchemaParsedType = keyof typeof SchemaParsedType;
-
-// Ejemplo de uso
 
 export const getParseType = (data: any): SchemaParsedType => {
   const t = typeof data;
@@ -69,7 +78,13 @@ export const getParseType = (data: any): SchemaParsedType => {
 
     case "object":
       if (Array.isArray(data)) {
-        return SchemaParsedType.array;
+        const containsJsonObject = data.every(
+          (item) => typeof item === "object" && item !== null
+        );
+
+        return containsJsonObject
+          ? SchemaParsedType.jsonarray
+          : SchemaParsedType.array;
       }
       if (data === null) {
         return SchemaParsedType.null;
@@ -91,6 +106,15 @@ export const getParseType = (data: any): SchemaParsedType => {
       if (typeof Date !== "undefined" && data instanceof Date) {
         return SchemaParsedType.date;
       }
+
+      if (typeof data === "object" && data !== null) {
+        const values = Object.values(data);
+        const allObjects = values.every(
+          (value) => typeof value === "object" && value !== null
+        );
+        return allObjects ? SchemaParsedType.json : SchemaParsedType.object;
+      }
+
       return SchemaParsedType.object;
 
     default:
@@ -98,62 +122,3 @@ export const getParseType = (data: any): SchemaParsedType => {
   }
 };
 
-type ValidatorFunction<T> = (value: T) => boolean;
-
-interface ValidationResult {
-  message: string;
-}
-
-type UserSchema = {
-  id: ValidatorFunction<number>;
-  username: ValidatorFunction<string>;
-  email: ValidatorFunction<string>;
-};
-
-const isNumber: ValidatorFunction<number> = (value) => {
-  return typeof value === "number" && !isNaN(value);
-};
-
-const isMinLength =
-  (minLength: number): ValidatorFunction<string> =>
-  (value) => {
-    return typeof value === "string" && value.length >= minLength;
-  };
-
-const isEmail: ValidatorFunction<string> = (value) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(value);
-};
-
-const validate = <T>(
-  schema: { [K in keyof T]: ValidatorFunction<T[K]> },
-  data: T
-): { [K in keyof T]: ValidationResult[] } => {
-  const errors: { [K in keyof T]: ValidationResult[] } = {} as any;
-
-  for (const key in schema) {
-    const validator = schema[key];
-    const value = data[key];
-
-    if (!validator(value)) {
-      errors[key] = [{ message: `Invalid value: ${JSON.stringify(value)}` }];
-    }
-  }
-
-  return errors;
-};
-
-const userSchema: UserSchema = {
-  id: isNumber,
-  username: isMinLength(3),
-  email: isEmail,
-};
-
-const userData = {
-  id: 123,
-  username: "usd",
-  email: "invalid@hotmail.com",
-};
-
-const validationErrors = validate(userSchema, userData);
-console.log(validationErrors);

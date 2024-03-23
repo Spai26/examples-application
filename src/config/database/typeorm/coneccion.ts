@@ -18,7 +18,7 @@ export class TypeOrmClient {
       password: databaseConfig.password,
       synchronize: true,
       logging: false,
-      entities: [path.join(__dirname, "/models/*{.js,.ts}")],
+      entities: [path.join(__dirname, "../models/*{.js,.ts}")],
       subscribers: [],
       migrations: [path.join(__dirname, "/migrations/*{.js,.ts}")],
     };
